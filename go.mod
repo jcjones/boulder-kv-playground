@@ -1,4 +1,4 @@
-module github.com/jcjones/boulder-kv/v2
+module github.com/jcjones/boulder-kv-playground/v2
 
 go 1.22.0
 

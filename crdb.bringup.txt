@@ -1,0 +1,15 @@
+CREATE USER pug with PASSWORD 'pugpug'; 
+GRANT ADMIN TO pug;
+SHOW REGIONS FROM CLUSTER;
+
+CREATE DATABASE boulder;
+USE boulder;
+CREATE TABLE authz ( id bigserial, regID bigserial , identifier STRING(128));
+
+INSERT INTO authz (regID, identifier) VALUES 
+	(10, 'pugsplace.net'),
+	(10, 'www.pugsplace.net'),
+	(10, 'salami.pugsplace.net');
+
+ALTER RANGE default CONFIGURE ZONE USING num_replicas=5;
+SHOW ZONE CONFIGURATIONS;

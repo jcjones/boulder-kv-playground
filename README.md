@@ -5,6 +5,17 @@ On your server, run
 ```console
 tikv/start-playground-server.sh
 ```
+or on one host, run this script with the IP:
+```console
+# Start a cluster leader on .80
+./start-cluster.sh 10.0.0.80
+```
+
+Then on another host, run this script with both its IP and then the leader's IP:
+```console
+# Start a cluster member on .81 pointing to .80
+./start-cluster.sh 10.0.0.81 10.0.0.80
+```
 
 Then fill the database:
 ```console
