@@ -40,6 +40,9 @@ var (
 	numDays   = flag.Int("n", 90, "number of days to issue for")
 	count     = flag.Int64("c", 100, "count of certificates to issue per day")
 	verbose   = flag.Bool("v", false, "be verbose")
+	slush, _  = time.ParseDuration("3d")
+	// 1024 goroutines is a sweet spot for overall performance
+	goroutines = flag.Int("g", 1024, "number of goroutines to use")
 )
 
 // Init initializes information.
@@ -51,19 +54,17 @@ func initStore() {
 	}
 }
 
-func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, issued time.Time) error {
+func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, issued time.Time, expiration time.Time) error {
 	// OnIssuance:
 	// Put key=SANHash-RegID value={Serial}, ttl=expDate
 	// Put key=ExpDate-RegID-SANHash value={Serial, LastNag=0}, ttl=expDate
 	// Put key=Serial value={SAN, Expires, Issued, Profile, etc.} ttl=expDatePlusLookback
 
 	sanHash := core.HashNames(san)
-	expiration := issued.AddDate(0, 0, 90)
-	now := time.Now()
-	ttl := uint64(expiration.Sub(now).Seconds())
+	ttl := uint64(time.Until(expiration.Add(slush)).Seconds())
 
 	keySanHashRegId := common.KeySanHashRegId{SANHash: sanHash, RegID: regID}
-	err := client.Put(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes())
+	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes(), ttl)
 	if err != nil {
 		return err
 	}
@@ -107,7 +108,7 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	return nil
 }
 
-func issueRandomCert(issuanceTime time.Time) error {
+func issueRandomCert(issuanceTime time.Time, expirationTime time.Time) error {
 	var serialBytes [16]byte
 	_, _ = rand.Read(serialBytes[:])
 	serial := big.NewInt(0).SetBytes(serialBytes[:])
@@ -115,7 +116,7 @@ func issueRandomCert(issuanceTime time.Time) error {
 	// Keep the randomstring small so we deliberately get some certs "reissued"
 	host := fmt.Sprintf("%s.lencr.org", core.RandomString(3))
 	san := []string{"lencr.org", host}
-	err := issueCert(context.TODO(), serial, san, 10, issuanceTime)
+	err := issueCert(context.TODO(), serial, san, 10, issuanceTime, expirationTime)
 	if err != nil {
 		return err
 	}
@@ -127,9 +128,12 @@ func issueRandomCert(issuanceTime time.Time) error {
 }
 
 func worker(wg *sync.WaitGroup, bar *progressbar.ProgressBar, workChan <-chan *time.Time) {
+	lifespan, _ := time.ParseDuration("90d")
+
 	defer wg.Done()
 	for issueDate := range workChan {
-		err := issueRandomCert(*issueDate)
+		expirationTime := issueDate.Add(lifespan)
+		err := issueRandomCert(*issueDate, expirationTime)
 		if err != nil {
 			panic(err)
 		}
@@ -160,8 +164,7 @@ func main() {
 		bar := progressbar.Default(*count)
 		wg := sync.WaitGroup{}
 
-		// 1024 goroutines is a sweet spot for overall performance
-		for range 1024 {
+		for range *goroutines {
 			wg.Add(1)
 			go worker(&wg, bar, workChan)
 		}

@@ -32,9 +32,10 @@ import (
 )
 
 var (
-	client  *rawkv.Client
-	pdAddr  = flag.String("pd", "cr1.pugha.us:2379", "pd address")
-	expDate = flag.String("exp", time.Now().Format("2006-01-02"), "expiration date")
+	client     *rawkv.Client
+	pdAddr     = flag.String("pd", "cr1.pugha.us:2379", "pd address")
+	expDate    = flag.String("exp", time.Now().Format("2006-01-02"), "expiration date")
+	windowSize = 128
 )
 
 // Init initializes information.
@@ -46,47 +47,25 @@ func initStore() {
 	}
 }
 
-// PeriodicExpMailer
-
-// For each expiration window, determine the Expiration Date in the future to check: ExpDate
-// Scan ExpDate-*
-// For each response
-// - If LastNag too recent
-// -- Skip
-// - Look up SANHAsh-RegID.
-// -- If that serial is not equal to this serial
-// --- It was replaced. Delete this key.
-// -- If there are any remaining SANHashes expiring for this RegID
-// --- Take note of this RegID/Date, these need emailing
-// --- Put Key=ExpirationMailer-CurrentRun-RegID-ExpDate, Value=Serial, TTL=tomorrow, for next pass
-
-// Scan ExpirationMailer-CurrentRun-*
-// For each RegID-ExpDate
-// - Scan ExpDate-RegID-*
-// - For each response
-// -- Lookup Serial
-// -- Build an email containing the Serials, SANs, and ExpDate and send it
-// -- Update the LastNag in ExpDate-RegID-SANHash
-// -- Delete the ExpirationMailer-CurrentRun-RegID-ExpDate key
-
-func FindExpiring(ctx context.Context, expiration time.Time) error {
+// Scan all entries beginning with Prefix. For each, if the SAN Hash is still
+// expiring, PUT expiration mailer entries for the follow-up to build emails
+// from.
+func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl uint64) error {
 	prefix := bytes.Buffer{}
 	_, err := fmt.Fprintf(&prefix, "E:%s|", expiration.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
 
-	startKey := prefix.Bytes()
 	count := 0
-	ttl := uint64(60 * 60 * 2) // two hour TTL for expiration jobs
-
+	startKey := prefix.Bytes()
 	for {
-		keys, values, err := client.Scan(ctx, startKey, []byte{}, 12)
+		keys, values, err := client.Scan(ctx, startKey, []byte{}, windowSize)
 		if err != nil {
 			return err
 		}
 		if len(keys) == 0 {
-			break
+			panic("Expected nonzero keys")
 		}
 
 		for i := range len(keys) {
@@ -94,9 +73,8 @@ func FindExpiring(ctx context.Context, expiration time.Time) error {
 			count += 1
 
 			if !bytes.HasPrefix(keys[i], prefix.Bytes()) {
-				// Done
-				fmt.Printf("Done, %s doesn't have %s\n", keys[i], startKey)
-				break
+				// We finished
+				return nil
 			}
 
 			var sln common.SerialLastNag
@@ -159,16 +137,18 @@ func FindExpiring(ctx context.Context, expiration time.Time) error {
 		finalKey := keys[len(keys)-1]
 		startKey = append(finalKey, byte(0))
 	}
+}
 
+func processExpiringCerts(ctx context.Context) error {
 	// Now perform pass two, finding all RegIDs with work
-	prefix = bytes.Buffer{}
-	_, err = fmt.Fprintf(&prefix, "ExpirationMailer-RegIds:")
+	prefix := bytes.Buffer{}
+	_, err := fmt.Fprintf(&prefix, "ExpirationMailer-RegIds:")
 	if err != nil {
 		return err
 	}
 
-	startKey = prefix.Bytes()
-	count = 0
+	startKey := prefix.Bytes()
+	count := 0
 
 	for {
 		keys, _, err := client.Scan(ctx, startKey, []byte{}, 12)
@@ -180,8 +160,15 @@ func FindExpiring(ctx context.Context, expiration time.Time) error {
 		}
 
 		for i := range len(keys) {
+			if !bytes.HasPrefix(keys[i], prefix.Bytes()) {
+				// We finished
+				fmt.Printf("key was %s got %s keys\n", startKey, keys[i])
+				continue
+			}
+
 			key, err := common.ToKeyExpirationMailerCurrentRun(keys[i])
 			if err != nil {
+				fmt.Printf("%d Didn't match %s: %v", count, keys[i], err)
 				return err
 			}
 			fmt.Printf("%d: Working on RegID=%d\n", count, key.RegID)
@@ -193,6 +180,46 @@ func FindExpiring(ctx context.Context, expiration time.Time) error {
 		finalKey := keys[len(keys)-1]
 		startKey = append(finalKey, byte(0))
 	}
+	return nil
+}
+
+// PeriodicExpMailer
+
+// For each expiration window, determine the Expiration Date in the future to check: ExpDate
+// Scan ExpDate-*
+// For each response
+// - If LastNag too recent
+// -- Skip
+// - Look up SANHAsh-RegID.
+// -- If that serial is not equal to this serial
+// --- It was replaced. Delete this key.
+// -- If there are any remaining SANHashes expiring for this RegID
+// --- Take note of this RegID/Date, these need emailing
+// --- Put Key=ExpirationMailer-CurrentRun-RegID-ExpDate, Value=Serial, TTL=tomorrow, for next pass
+
+// Scan ExpirationMailer-CurrentRun-*
+// For each RegID-ExpDate
+// - Scan ExpDate-RegID-*
+// - For each response
+// -- Lookup Serial
+// -- Build an email containing the Serials, SANs, and ExpDate and send it
+// -- Update the LastNag in ExpDate-RegID-SANHash
+// -- Delete the ExpirationMailer-CurrentRun-RegID-ExpDate key
+
+func FindExpiring(ctx context.Context, expiration time.Time) error {
+	ttl, _ := time.ParseDuration("2h")
+	err := scanAndMarkExpiringCerts(ctx, expiration, uint64(ttl.Milliseconds()))
+	if err != nil {
+		fmt.Printf("Failed to scanAndMarkExpiringCerts: %v", err)
+		return err
+	}
+
+	err = processExpiringCerts(ctx)
+	if err != nil {
+		fmt.Printf("Failed to processExpiringCerts: %v", err)
+		return err
+	}
+
 	return nil
 }
 

@@ -10,24 +10,25 @@ import (
 )
 
 type SerialLastNag struct {
-	Serial big.Int
+	Serial  big.Int
 	LastNag string
 }
 
 type SerialCertData struct {
-	SAN []string
-	Issued string
+	SAN     []string
+	Issued  string
 	Profile string
 }
 
 type KeySanHashRegId struct {
 	SANHash []byte
-	RegID int
+	RegID   int
 }
 
 func (r *KeySanHashRegId) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "H:%X|%d", r.SANHash, r.RegID); if err != nil {
+	_, err := fmt.Fprintf(&buf, "H:%X|%d", r.SANHash, r.RegID)
+	if err != nil {
 		panic(err)
 	}
 	return buf.Bytes()
@@ -58,13 +59,14 @@ func ToKeySanHashRegId(x []byte) (*KeySanHashRegId, error) {
 
 type KeyExpirationRegIdSanHash struct {
 	Expiration string
-	RegID int
-	SANHash []byte
+	RegID      int
+	SANHash    []byte
 }
 
 func (e *KeyExpirationRegIdSanHash) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "E:%s|%d|%X", e.Expiration, e.RegID, e.SANHash); if err != nil {
+	_, err := fmt.Fprintf(&buf, "E:%s|%d|%X", e.Expiration, e.RegID, e.SANHash)
+	if err != nil {
 		panic(err)
 	}
 	return buf.Bytes()
@@ -98,8 +100,8 @@ func ToKeyExpirationRegIdSanHash(x []byte) (*KeyExpirationRegIdSanHash, error) {
 
 	return &KeyExpirationRegIdSanHash{
 		Expiration: expiration,
-		RegID: regID,
-		SANHash: hash,
+		RegID:      regID,
+		SANHash:    hash,
 	}, nil
 }
 
@@ -109,7 +111,8 @@ type KeySerial struct {
 
 func (s *KeySerial) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "S:%s", core.SerialToString(&s.Serial)); if err != nil {
+	_, err := fmt.Fprintf(&buf, "S:%s", core.SerialToString(&s.Serial))
+	if err != nil {
 		panic(err)
 	}
 	return buf.Bytes()
@@ -137,7 +140,8 @@ type KeyExpirationMailerCurrentRun struct {
 
 func (e *KeyExpirationMailerCurrentRun) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "ExpirationMailer-RegIds:%d", e.RegID); if err != nil {
+	_, err := fmt.Fprintf(&buf, "ExpirationMailer-RegIds:%d", e.RegID)
+	if err != nil {
 		panic(err)
 	}
 	return buf.Bytes()
@@ -166,13 +170,14 @@ func ToKeyExpirationMailerCurrentRun(x []byte) (*KeyExpirationMailerCurrentRun, 
 }
 
 type KeyExpirationMailerCurrentRunRegIdSerial struct {
-	RegID int
+	RegID  int
 	Serial big.Int
 }
 
 func (e *KeyExpirationMailerCurrentRunRegIdSerial) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|%s", e.RegID, core.SerialToString(&e.Serial)); if err != nil {
+	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|%s", e.RegID, core.SerialToString(&e.Serial))
+	if err != nil {
 		panic(err)
 	}
 	return buf.Bytes()
@@ -199,7 +204,7 @@ func ToKeyExpirationMailerCurrentRunRegIdSerial(x []byte) (*KeyExpirationMailerC
 	}
 
 	ke := KeyExpirationMailerCurrentRunRegIdSerial{
-		RegID: regID,
+		RegID:  regID,
 		Serial: big.Int{},
 	}
 	ke.Serial.SetBytes(buf.Bytes())

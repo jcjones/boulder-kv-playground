@@ -29,38 +29,42 @@ cat <<EOF >"${CLUSTER_DIR}/config-pd.toml"
 patrol-region-interval = "100ms"
 EOF
 
-if [ -z "${PD_IP}" ]; then
-tiup install pd:v8.2.0
+PD_FLAGS=(
+	--name=rocinante
+	--config="${CLUSTER_DIR}/config-pd.toml"
+	--data-dir="${CLUSTER_DIR}/pd/data"
+	--peer-urls=http://${MY_IP}:2380
+	--advertise-peer-urls=http://${MY_IP}:2380
+	--client-urls=http://${MY_IP}:2379
+	--advertise-client-urls=http://${MY_IP}:2379
+	--initial-cluster=rocinante=http://${MY_IP}:2380
+	--log-file="${CLUSTER_DIR}/pd/log.txt"
+)
 
-${HOME}/.tiup/components/pd/v8.2.0/pd-server \
-	--name=rocinante \
-	--config="${CLUSTER_DIR}/config-pd.toml" \
-	--data-dir="${CLUSTER_DIR}/pd/data" \
-	--peer-urls=http://${MY_IP}:2380 \
-	--advertise-peer-urls=http://${MY_IP}:2380 \
-	--client-urls=http://${MY_IP}:2379 \
-	--advertise-client-urls=http://${MY_IP}:2379 \
-	--initial-cluster=pd-0=http://${MY_IP}:2380 &
-	# --config=/home/pug/.tiup/data/ULuZ0kQ/pd-0/pd.toml \
-
-	PD_PID=$!
-
-	# PD is running locally
-	PD_IP="${MY_IP}"
+if [ -n "${PD_IP}" ]; then
+	PD_CONF+="--join=${PDF_IP}:2379"
 fi
 
-tiup install tikv:v8.2.0
+tiup install pd:v8.2.0 tikv:v8.2.0
 
-${HOME}/.tiup/components/tikv/v8.2.0/tikv-server \
-	--config="${CLUSTER_DIR}/config-tikv.toml" \
-	--data-dir="${CLUSTER_DIR}/tikv/data" \
-	--addr="${MY_IP}:20160" \
-	--advertise-addr="${MY_IP}:20160" \
-	--status-addr="${MY_IP}:20180" \
-	--pd-endpoints="http://${PD_IP}:2379"
+# Start the control plane server
+${HOME}/.tiup/components/pd/v8.2.0/pd-server "${PD_FLAGS[@]}" &
+PD_PID=$!
+
+TIKV_FLAGS=(
+	--config="${CLUSTER_DIR}/config-tikv.toml"
+	--data-dir="${CLUSTER_DIR}/tikv/data"
+	--addr="${MY_IP}:20160"
+	--advertise-addr="${MY_IP}:20160"
+	--status-addr="${MY_IP}:20180"
+	--pd-endpoints="http://${MY_IP}:2379"
+)
+
+# Start the KV server
+${HOME}/.tiup/components/tikv/v8.2.0/tikv-server "${TIKV_FLAGS[@]}"
 
 # Cleanup
 if [ -n "${PD_PID}" ]; then
-	kill $PD_PID
+	kill ${PD_PID}
 fi
 rm -rf "${CLUSTER_DIR}"
