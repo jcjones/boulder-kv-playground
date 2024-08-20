@@ -45,16 +45,21 @@ func ToKeySanHashRegId(x []byte) (*KeySanHashRegId, error) {
 		return nil, fmt.Errorf("Invalid KeySanHashRegId prefix: %s", prefix)
 	}
 
-	hash, err := buf.ReadBytes('|')
+	hashStr, err := buf.ReadString('|')
 	if err != nil {
 		return nil, err
 	}
-	regId, err := strconv.Atoi(buf.String())
+	ret := KeySanHashRegId{}
+	_, err = fmt.Sscanf(hashStr, "%064X|", &ret.SANHash)
 	if err != nil {
 		return nil, err
 	}
-
-	return &KeySanHashRegId{SANHash: hash, RegID: regId}, nil
+	regID, err := strconv.Atoi(buf.String())
+	if err != nil {
+		return nil, err
+	}
+	ret.RegID = regID
+	return &ret, nil
 }
 
 type KeyExpirationRegIdSanHash struct {
@@ -91,18 +96,21 @@ func ToKeyExpirationRegIdSanHash(x []byte) (*KeyExpirationRegIdSanHash, error) {
 	if err != nil {
 		return nil, err
 	}
-	regID, err := strconv.Atoi(regIdStr)
+	regID, err := strconv.Atoi(regIdStr[:len(regIdStr)-1])
+	if err != nil {
+		return nil, err
+	}
+	ret := KeyExpirationRegIdSanHash{
+		Expiration: expiration[:len(expiration)-1],
+		RegID:      regID,
+	}
+	hashStr := buf.String()
+	_, err = fmt.Sscanf(hashStr, "%064X", &ret.SANHash)
 	if err != nil {
 		return nil, err
 	}
 
-	hash := buf.Bytes()
-
-	return &KeyExpirationRegIdSanHash{
-		Expiration: expiration,
-		RegID:      regID,
-		SANHash:    hash,
-	}, nil
+	return &ret, nil
 }
 
 type KeySerial struct {
@@ -129,9 +137,11 @@ func ToKeySerial(x []byte) (*KeySerial, error) {
 		return nil, fmt.Errorf("Invalid KeySerial prefix: %s", prefix)
 	}
 
-	var ks KeySerial
-	ks.Serial.SetBytes(buf.Bytes())
-	return &ks, nil
+	serial, err := core.StringToSerial(buf.String())
+	if err != nil {
+		return nil, err
+	}
+	return &KeySerial{Serial: *serial}, nil
 }
 
 type KeyExpirationMailerCurrentRun struct {
@@ -174,6 +184,15 @@ type KeyExpirationMailerCurrentRunRegIdSerial struct {
 	Serial big.Int
 }
 
+func KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(RegID  int) []byte {
+	buf := bytes.Buffer{}
+	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|", RegID)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
 func (e *KeyExpirationMailerCurrentRunRegIdSerial) Bytes() []byte {
 	buf := bytes.Buffer{}
 	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|%s", e.RegID, core.SerialToString(&e.Serial))
@@ -194,11 +213,11 @@ func ToKeyExpirationMailerCurrentRunRegIdSerial(x []byte) (*KeyExpirationMailerC
 		return nil, fmt.Errorf("Invalid KeyExpirationMailerCurrentRun prefix: %s", prefix)
 	}
 
-	regIdStr, err := buf.ReadString(':')
+	regIdStr, err := buf.ReadString('|')
 	if err != nil {
 		return nil, err
 	}
-	regID, err := strconv.Atoi(regIdStr)
+	regID, err := strconv.Atoi(regIdStr[:len(regIdStr)-1])
 	if err != nil {
 		return nil, err
 	}

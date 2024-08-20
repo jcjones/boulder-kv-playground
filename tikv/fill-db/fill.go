@@ -61,10 +61,13 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	// Put key=Serial value={SAN, Expires, Issued, Profile, etc.} ttl=expDatePlusLookback
 
 	sanHash := core.HashNames(san)
-	ttl_sec := uint64(time.Until(expiration.Add(slush)).Seconds())
+
+	exp_plus_slush := expiration.Add(slush)
+	seconds_to_live := exp_plus_slush.Sub(issued).Seconds()
+	ttl_sec := uint64(seconds_to_live)
 
 	slog.Debug("Issuing cert", "sanHash", sanHash, "ttl_sec", ttl_sec, "issued", issued,
-		"expiring", expiration, "regID", regID, "serial", serial.String())
+		"expiring", expiration, "regID", regID, "serial", serial.String(), "exp_plus_slush", exp_plus_slush, "seconds_to_live", seconds_to_live)
 
 	keySanHashRegId := common.KeySanHashRegId{SANHash: sanHash, RegID: regID}
 	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes(), ttl_sec)

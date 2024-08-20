@@ -46,7 +46,8 @@ func list(ctx context.Context) error {
 	count := 0
 
 	for {
-		keys, values, err := client.Scan(ctx, startKey, []byte{}, 12, rawkv.ScanKeyOnly())
+		// Add rawkv.ScanKeyOnly() as an arg to be faster
+		keys, values, err := client.Scan(ctx, startKey, []byte{}, 12)
 		if err != nil {
 			return err
 		}
