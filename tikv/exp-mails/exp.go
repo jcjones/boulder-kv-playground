@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"os"
 	"time"
@@ -50,7 +51,7 @@ func initStore() {
 // Scan all entries beginning with Prefix. For each, if the SAN Hash is still
 // expiring, PUT expiration mailer entries for the follow-up to build emails
 // from.
-func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl uint64) error {
+func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl_sec uint64) error {
 	prefix := bytes.Buffer{}
 	_, err := fmt.Fprintf(&prefix, "E:%s|", expiration.Format("2006-01-02"))
 	if err != nil {
@@ -74,6 +75,7 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl uin
 
 			if !bytes.HasPrefix(keys[i], prefix.Bytes()) {
 				// We finished
+				slog.Info("scanAndMarkExpiringCerts finished", "startKey", startKey, "endKey", keys[i])
 				return nil
 			}
 
@@ -109,16 +111,16 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl uin
 				if err != nil {
 					return err
 				}
-				fmt.Printf("The certificate for SANHash %s was reissued from %s to %s\n",
-					keySanHashRegId.SANHash,
-					core.SerialToString(&sln.Serial),
-					core.SerialToString(&serial))
+				slog.Info("The certificate was reissued",
+					"SANHash", keySanHashRegId.SANHash,
+					"fromSerial", core.SerialToString(&sln.Serial),
+					"toSerial", core.SerialToString(&serial))
 				continue
 			}
 
 			// This SanHash/RegID/Serial is expiring, note it for pass 2
 			keyExpMailerSerial := common.KeyExpirationMailerCurrentRunRegIdSerial{RegID: keySanHashRegId.RegID, Serial: serial}
-			err = client.PutWithTTL(ctx, keyExpMailerSerial.Bytes(), []byte{}, ttl)
+			err = client.PutWithTTL(ctx, keyExpMailerSerial.Bytes(), []byte{}, ttl_sec)
 			if err != nil {
 				return err
 			}
@@ -127,7 +129,7 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl uin
 			// This will probably overwrite something, but it's empty, no biggie. It's
 			// faster to do extra PUTs than a conditional
 			keyExpMailerRegMarker := common.KeyExpirationMailerCurrentRun{RegID: keySanHashRegId.RegID}
-			err = client.PutWithTTL(ctx, keyExpMailerRegMarker.Bytes(), []byte{}, ttl)
+			err = client.PutWithTTL(ctx, keyExpMailerRegMarker.Bytes(), []byte{}, ttl_sec)
 			if err != nil {
 				return err
 			}
@@ -162,16 +164,16 @@ func processExpiringCerts(ctx context.Context) error {
 		for i := range len(keys) {
 			if !bytes.HasPrefix(keys[i], prefix.Bytes()) {
 				// We finished
-				fmt.Printf("key was %s got %s keys\n", startKey, keys[i])
+				slog.Info("processExpiringCerts finished", "startKey", startKey, "endKey", keys[i])
 				continue
 			}
 
 			key, err := common.ToKeyExpirationMailerCurrentRun(keys[i])
 			if err != nil {
-				fmt.Printf("%d Didn't match %s: %v", count, keys[i], err)
+				slog.Warn("Didn't match", "count", count, "key", keys[i], "err", err)
 				return err
 			}
-			fmt.Printf("%d: Working on RegID=%d\n", count, key.RegID)
+			slog.Info("Working", "count", count, "RegID", key.RegID)
 			count += 1
 		}
 
@@ -210,13 +212,13 @@ func FindExpiring(ctx context.Context, expiration time.Time) error {
 	ttl, _ := time.ParseDuration("2h")
 	err := scanAndMarkExpiringCerts(ctx, expiration, uint64(ttl.Milliseconds()))
 	if err != nil {
-		fmt.Printf("Failed to scanAndMarkExpiringCerts: %v", err)
+		slog.Error("Failed to scanAndMarkExpiringCerts", "err", err)
 		return err
 	}
 
 	err = processExpiringCerts(ctx)
 	if err != nil {
-		fmt.Printf("Failed to processExpiringCerts: %v", err)
+		slog.Error("Failed to processExpiringCerts", "err", err)
 		return err
 	}
 

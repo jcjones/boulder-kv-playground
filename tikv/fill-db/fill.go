@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"os"
 	"sync"
@@ -34,15 +35,14 @@ import (
 )
 
 var (
-	client    *rawkv.Client
-	pdAddr    = flag.String("pd", "cr1.pugha.us:2379", "pd address")
-	startDate = flag.String("s", time.Now().Format("2006-01-02"), "issuance start date")
-	numDays   = flag.Int("n", 90, "number of days to issue for")
-	count     = flag.Int64("c", 100, "count of certificates to issue per day")
-	verbose   = flag.Bool("v", false, "be verbose")
-	slush, _  = time.ParseDuration("3d")
-	// 1024 goroutines is a sweet spot for overall performance
-	goroutines = flag.Int("g", 1024, "number of goroutines to use")
+	client     *rawkv.Client
+	pdAddr     = flag.String("pd", "cr1.pugha.us:2379", "pd address")
+	startDate  = flag.String("s", time.Now().Format("2006-01-02"), "issuance start date")
+	numDays    = flag.Int("n", 90, "number of days to issue for")
+	count      = flag.Int64("c", 100, "count of certificates to issue per day")
+	verbose    = flag.Bool("v", false, "be verbose")
+	slush      = time.Hour * 3                                      // TTL overlap for ease of debug
+	goroutines = flag.Int("g", 1024, "number of goroutines to use") // default seems a sweet spot
 )
 
 // Init initializes information.
@@ -61,10 +61,13 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	// Put key=Serial value={SAN, Expires, Issued, Profile, etc.} ttl=expDatePlusLookback
 
 	sanHash := core.HashNames(san)
-	ttl := uint64(time.Until(expiration.Add(slush)).Seconds())
+	ttl_sec := uint64(time.Until(expiration.Add(slush)).Seconds())
+
+	slog.Debug("Issuing cert", "sanHash", sanHash, "ttl_sec", ttl_sec, "issued", issued,
+		"expiring", expiration, "regID", regID, "serial", serial.String())
 
 	keySanHashRegId := common.KeySanHashRegId{SANHash: sanHash, RegID: regID}
-	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes(), ttl)
+	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes(), ttl_sec)
 	if err != nil {
 		return err
 	}
@@ -83,7 +86,7 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	if err != nil {
 		return err
 	}
-	err = client.PutWithTTL(ctx, keyExpiration.Bytes(), value, ttl)
+	err = client.PutWithTTL(ctx, keyExpiration.Bytes(), value, ttl_sec)
 	if err != nil {
 		return err
 	}
@@ -101,14 +104,14 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	if err != nil {
 		return err
 	}
-	err = client.PutWithTTL(ctx, keySerial.Bytes(), value, ttl)
+	err = client.PutWithTTL(ctx, keySerial.Bytes(), value, ttl_sec)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func issueRandomCert(issuanceTime time.Time, expirationTime time.Time) error {
+func issueRandomCert(ctx context.Context, issuanceTime time.Time, expirationTime time.Time) error {
 	var serialBytes [16]byte
 	_, _ = rand.Read(serialBytes[:])
 	serial := big.NewInt(0).SetBytes(serialBytes[:])
@@ -116,24 +119,22 @@ func issueRandomCert(issuanceTime time.Time, expirationTime time.Time) error {
 	// Keep the randomstring small so we deliberately get some certs "reissued"
 	host := fmt.Sprintf("%s.lencr.org", core.RandomString(3))
 	san := []string{"lencr.org", host}
-	err := issueCert(context.TODO(), serial, san, 10, issuanceTime, expirationTime)
+	err := issueCert(ctx, serial, san, 10, issuanceTime, expirationTime)
 	if err != nil {
 		return err
 	}
 
-	if *verbose {
-		fmt.Printf("Issued %s on %s\n", serial, issuanceTime.Format("2006-01-02"))
-	}
 	return nil
 }
 
 func worker(wg *sync.WaitGroup, bar *progressbar.ProgressBar, workChan <-chan *time.Time) {
-	lifespan, _ := time.ParseDuration("90d")
+	lifespan := time.Hour * 24 * 90
 
 	defer wg.Done()
 	for issueDate := range workChan {
 		expirationTime := issueDate.Add(lifespan)
-		err := issueRandomCert(*issueDate, expirationTime)
+		slog.Info("worker", "i", issueDate, "e", expirationTime, "l", lifespan)
+		err := issueRandomCert(context.TODO(), *issueDate, expirationTime)
 		if err != nil {
 			panic(err)
 		}
@@ -147,6 +148,11 @@ func main() {
 		os.Args = append(os.Args, "-pd", pdAddr)
 	}
 	flag.Parse()
+
+	if *verbose {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
 	initStore()
 
 	issueDate, err := time.Parse("2006-01-02", *startDate)
@@ -155,10 +161,10 @@ func main() {
 	}
 	endDate := issueDate.AddDate(0, 0, *numDays)
 
-	fmt.Printf("Filling DB with %d certs/day between %s and %s\n", *count, *startDate, endDate)
+	slog.Info("Filling DB", "certs/day", *count, "startDate", *startDate, "endDate", endDate)
 
 	for {
-		fmt.Printf("Issuing on date %s\n", issueDate)
+		slog.Info("Issuing", "issueDate", issueDate)
 
 		workChan := make(chan *time.Time, 100) // Buffered channel
 		bar := progressbar.Default(*count)

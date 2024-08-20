@@ -15,11 +15,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
-	"fmt"
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/tikv/client-go/v2/rawkv"
@@ -40,38 +40,6 @@ func initStore() {
 	}
 }
 
-func list(ctx context.Context) error {
-	prefix := bytes.Buffer{}
-	startKey := prefix.Bytes()
-	count := 0
-
-	for {
-		keys, values, err := client.Scan(ctx, startKey, []byte{}, 12, rawkv.ScanKeyOnly())
-		if err != nil {
-			return err
-		}
-		if len(keys) == 0 {
-			break
-		}
-
-		for i := range len(keys) {
-			ttl, err := client.GetKeyTTL(ctx, keys[i])
-			if err != nil {
-				return err
-			}
-			fmt.Printf("%d: key=%s valLen=%d ttl=%d\n", count, keys[i], len(values[i]), ttl)
-			count += 1
-		}
-
-		// We append a null to the startKey so we skip that one and avoid transferring
-		// the dupe across the wire
-		finalKey := keys[len(keys)-1]
-		startKey = append(finalKey, byte(0))
-	}
-	return nil
-}
-
-
 func main() {
 	pdAddr := os.Getenv("PD_ADDR")
 	if pdAddr != "" {
@@ -80,9 +48,20 @@ func main() {
 	flag.Parse()
 	initStore()
 
-	err := list(context.TODO())
+	err := client.PutWithTTL(context.TODO(), []byte{0xFF}, []byte{0x42}, 60)
 	if err != nil {
-		panic(err)
+		slog.Error("Couldn't put", "err", err)
+	}
+
+	for {
+		ttl, err := client.GetKeyTTL(context.TODO(), []byte{0xFF})
+		if err != nil {
+			slog.Error("Couldn't get", "err", err)
+			break
+		}
+		slog.Info("TTL was", "ttl", *ttl)
+
+		time.Sleep(1 * time.Second)
 	}
 
 	client.Close()
