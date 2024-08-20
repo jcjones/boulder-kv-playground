@@ -132,11 +132,9 @@ func issueRandomCert(ctx context.Context, issuanceTime time.Time, expirationTime
 
 func worker(wg *sync.WaitGroup, bar *progressbar.ProgressBar, workChan <-chan *time.Time) {
 	lifespan := time.Hour * 24 * 90
-
 	defer wg.Done()
 	for issueDate := range workChan {
 		expirationTime := issueDate.Add(lifespan)
-		slog.Info("worker", "i", issueDate, "e", expirationTime, "l", lifespan)
 		err := issueRandomCert(context.TODO(), *issueDate, expirationTime)
 		if err != nil {
 			panic(err)
