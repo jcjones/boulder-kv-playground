@@ -3,8 +3,6 @@ package common
 import (
 	"bytes"
 	"crypto/sha256"
-	"math/big"
-
 	"testing"
 )
 
@@ -43,9 +41,8 @@ func TestKeyExpirationRegIdSanHash(t *testing.T) {
 
 func TestKeySerial(t *testing.T) {
 	k := KeySerial{
-		Serial: big.Int{},
+		Serial: "111231564891321231564891321231564891",
 	}
-	k.Serial.SetInt64(1231564891321)
 	arr := k.Bytes()
 	res, err := ToKeySerial(arr)
 	if err != nil {

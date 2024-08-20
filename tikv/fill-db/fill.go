@@ -54,7 +54,7 @@ func initStore() {
 	}
 }
 
-func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, issued time.Time, expiration time.Time) error {
+func issueCert(ctx context.Context, serial string, san []string, regID int, issued time.Time, expiration time.Time) error {
 	// OnIssuance:
 	// Put key=SANHash-RegID value={Serial}, ttl=expDate
 	// Put key=ExpDate-RegID-SANHash value={Serial, LastNag=0}, ttl=expDate
@@ -67,10 +67,10 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	ttl_sec := uint64(seconds_to_live)
 
 	slog.Debug("Issuing cert", "sanHash", sanHash, "ttl_sec", ttl_sec, "issued", issued,
-		"expiring", expiration, "regID", regID, "serial", serial.String(), "exp_plus_slush", exp_plus_slush, "seconds_to_live", seconds_to_live)
+		"expiring", expiration, "regID", regID, "serial", serial, "exp_plus_slush", exp_plus_slush, "seconds_to_live", seconds_to_live)
 
 	keySanHashRegId := common.KeySanHashRegId{SANHash: sanHash, RegID: regID}
-	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), serial.Bytes(), ttl_sec)
+	err := client.PutWithTTL(context.TODO(), keySanHashRegId.Bytes(), []byte(serial), ttl_sec)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	}
 
 	sln := &common.SerialLastNag{
-		Serial:  *serial,
+		Serial:  serial,
 		LastNag: "0000-00-00",
 	}
 	value, err := json.Marshal(sln)
@@ -95,7 +95,7 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 	}
 
 	keySerial := common.KeySerial{
-		Serial: *serial,
+		Serial: serial,
 	}
 
 	certData := &common.SerialCertData{
@@ -117,10 +117,10 @@ func issueCert(ctx context.Context, serial *big.Int, san []string, regID int, is
 func issueRandomCert(ctx context.Context, issuanceTime time.Time, expirationTime time.Time) error {
 	var serialBytes [16]byte
 	_, _ = rand.Read(serialBytes[:])
-	serial := big.NewInt(0).SetBytes(serialBytes[:])
+	serial := big.NewInt(0).SetBytes(serialBytes[:]).String()
 
 	// Keep the randomstring small so we deliberately get some certs "reissued"
-	host := fmt.Sprintf("%s.lencr.org", core.RandomString(3))
+	host := fmt.Sprintf("%s.lencr.org", core.RandomString(1))
 	san := []string{"lencr.org", host}
 	err := issueCert(ctx, serial, san, 10, issuanceTime, expirationTime)
 	if err != nil {

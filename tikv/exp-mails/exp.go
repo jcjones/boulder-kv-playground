@@ -21,13 +21,11 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"math/big"
 	"os"
 	"time"
 
 	"github.com/jcjones/boulder-kv-playground/v2/common"
 
-	"github.com/letsencrypt/boulder/core"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/tikv/client-go/v2/rawkv"
 )
@@ -85,7 +83,7 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl_sec
 				return err
 			}
 
-			slog.Debug("Processing", "count", count, "key", keys[i], "lastNag", sln.LastNag, "serial", sln.Serial.String())
+			slog.Debug("Processing", "count", count, "key", keys[i], "lastNag", sln.LastNag, "serial", sln.Serial)
 
 			if sln.LastNag != "0000-00-00" {
 				// Is LastNag too recent?
@@ -111,9 +109,8 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl_sec
 			}
 			slog.Debug("KeyHashSAN", "key", keySanHash.Bytes(), "serialBytes", serialBytes, "expected", sln.Serial)
 
-			var serial big.Int
-			serial.SetBytes(serialBytes)
-			if sln.Serial.Cmp(&serial) != 0 {
+			serial := string(serialBytes)
+			if sln.Serial != serial {
 				// This was reissued, this key is irrelevant, delete it
 				err = client.Delete(ctx, keys[i])
 				if err != nil {
@@ -121,8 +118,8 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl_sec
 				}
 				slog.Info("The certificate was reissued",
 					"SANHash", keyExpSanHashRegId.SANHash,
-					"fromSerial", core.SerialToString(&sln.Serial),
-					"toSerial", core.SerialToString(&serial))
+					"fromSerial", sln.Serial,
+					"toSerial", serial)
 				continue
 			}
 
@@ -149,11 +146,13 @@ func scanAndMarkExpiringCerts(ctx context.Context, expiration time.Time, ttl_sec
 	}
 }
 
-func processSerialsForRegID(ctx context.Context, regID int) ([]string, error) {
-	startKey := common.KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(regID)
+func processSerialsForRegID(ctx context.Context, regID int) (map[string][]string, error) {
+	prefix := common.KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(regID)
+
+	startKey := prefix
 	count := 0
 
-	expiringSerials := []string{}
+	expiringSerials := make(map[string][]string)
 
 	for {
 		keys, _, err := client.Scan(ctx, startKey, []byte{}, windowSize)
@@ -166,7 +165,7 @@ func processSerialsForRegID(ctx context.Context, regID int) ([]string, error) {
 		}
 
 		for i := range len(keys) {
-			if !bytes.HasPrefix(keys[i], startKey) {
+			if !bytes.HasPrefix(keys[i], prefix) {
 				// We finished
 				slog.Info("processExpiringCerts finished subloop", "regId", regID, "startKey", startKey, "endKey", keys[i])
 				return expiringSerials, nil
@@ -178,8 +177,28 @@ func processSerialsForRegID(ctx context.Context, regID int) ([]string, error) {
 				return nil, err
 			}
 
-			slog.Info("Serial expiring", "RegID", regID, "Serial", key.Serial)
-			expiringSerials = append(expiringSerials, core.SerialToString(&key.Serial))
+			keyKs := common.KeySerial{Serial: key.Serial}
+			keySerialBytes, err := client.Get(ctx, keyKs.Bytes())
+			if err != nil {
+				return nil, err
+			}
+			if keySerialBytes == nil {
+				return nil, fmt.Errorf("Couldn't find KeySerial")
+			}
+
+			var keySerialValue common.SerialCertData
+			err = json.Unmarshal(keySerialBytes, &keySerialValue)
+			if err != nil {
+				return nil, err
+			}
+
+			err = client.Delete(ctx, keys[i])
+			if err != nil {
+				return nil, err
+			}
+
+			slog.Info("Serial expiring", "RegID", regID, "Serial", key.Serial, "Issued", keySerialValue.Issued, "Profile", keySerialValue.Profile, "SAN", keySerialValue.SAN)
+			expiringSerials[key.Serial] = keySerialValue.SAN
 			count += 1
 		}
 
@@ -225,13 +244,18 @@ func processExpiringCerts(ctx context.Context) error {
 			}
 
 			slog.Info("Producing an email", "RegID", key.RegID, "key", keys[i])
-			serials, err := processSerialsForRegID(ctx, key.RegID)
+			entities, err := processSerialsForRegID(ctx, key.RegID)
 			if err != nil {
 				slog.Error("Couldn't process for RegID", "RegID", key.RegID, "err", err)
 				return err
 			}
 
-			fmt.Printf("Dear %d, you have %d serials expiring: %v", key.RegID, len(serials), serials)
+			err = client.Delete(ctx, keys[i])
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("\n\nDear %d, you have %d serials expiring: %v\n\n", key.RegID, len(entities), entities)
 			count += 1
 		}
 

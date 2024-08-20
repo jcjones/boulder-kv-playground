@@ -3,14 +3,11 @@ package common
 import (
 	"bytes"
 	"fmt"
-	"math/big"
 	"strconv"
-
-	"github.com/letsencrypt/boulder/core"
 )
 
 type SerialLastNag struct {
-	Serial  big.Int
+	Serial  string
 	LastNag string
 }
 
@@ -114,12 +111,12 @@ func ToKeyExpirationRegIdSanHash(x []byte) (*KeyExpirationRegIdSanHash, error) {
 }
 
 type KeySerial struct {
-	Serial big.Int
+	Serial string
 }
 
 func (s *KeySerial) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "S:%s", core.SerialToString(&s.Serial))
+	_, err := fmt.Fprintf(&buf, "S:%s", s.Serial)
 	if err != nil {
 		panic(err)
 	}
@@ -137,11 +134,7 @@ func ToKeySerial(x []byte) (*KeySerial, error) {
 		return nil, fmt.Errorf("Invalid KeySerial prefix: %s", prefix)
 	}
 
-	serial, err := core.StringToSerial(buf.String())
-	if err != nil {
-		return nil, err
-	}
-	return &KeySerial{Serial: *serial}, nil
+	return &KeySerial{Serial: buf.String()}, nil
 }
 
 type KeyExpirationMailerCurrentRun struct {
@@ -181,10 +174,10 @@ func ToKeyExpirationMailerCurrentRun(x []byte) (*KeyExpirationMailerCurrentRun, 
 
 type KeyExpirationMailerCurrentRunRegIdSerial struct {
 	RegID  int
-	Serial big.Int
+	Serial string
 }
 
-func KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(RegID  int) []byte {
+func KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(RegID int) []byte {
 	buf := bytes.Buffer{}
 	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|", RegID)
 	if err != nil {
@@ -195,7 +188,7 @@ func KeyExpirationMailerCurrentRunRegIdSerialSearchPrefix(RegID  int) []byte {
 
 func (e *KeyExpirationMailerCurrentRunRegIdSerial) Bytes() []byte {
 	buf := bytes.Buffer{}
-	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|%s", e.RegID, core.SerialToString(&e.Serial))
+	_, err := fmt.Fprintf(&buf, "ExpirationMailer-Serials:%d|%s", e.RegID, e.Serial)
 	if err != nil {
 		panic(err)
 	}
@@ -222,10 +215,8 @@ func ToKeyExpirationMailerCurrentRunRegIdSerial(x []byte) (*KeyExpirationMailerC
 		return nil, err
 	}
 
-	ke := KeyExpirationMailerCurrentRunRegIdSerial{
+	return &KeyExpirationMailerCurrentRunRegIdSerial{
 		RegID:  regID,
-		Serial: big.Int{},
-	}
-	ke.Serial.SetBytes(buf.Bytes())
-	return &ke, nil
+		Serial: buf.String(),
+	}, nil
 }
