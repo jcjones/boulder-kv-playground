@@ -1,4 +1,4 @@
-$ports=@(2379,2380,2381,2382,2383,2384,3306,3307,3308,20160,20161,20162) # the ports you want to open
+$ports=@(2379,2380,2381,2382,2383,2384,3000,3306,3307,3308,9090,20160,20161,20162) # the ports you want to open
 $addr='0.0.0.0';
 
 $wslIP = bash.exe -c "hostname -I"

@@ -7,6 +7,7 @@ fi
 
 MY_IP="${1}"
 PD_IP="${2:-}"
+LOCAL_IP="$(hostname -I)"
 VER="v8.3.0"
 PIDS=()
 
@@ -43,20 +44,20 @@ shut_down() {
 }
 
 cleanup() {
+	info "Cleaning up (PIDs: ${PIDS[@]})..."
+	kill "${PIDS[@]}" >/dev/null 2>&1
+
 	shut_down tidb-server
 	sleep 2
 	shut_down tikv-server
 	sleep 2
 	shut_down pd-server
 
-	info "Cleaning up (PIDs: ${PIDS[@]})..."
-	kill "${PIDS[@]}" >/dev/null
-
 	info "Waiting for stoppage..."
 	sleep 10
 
 	info "Sending kill -9"
-	kill -9 "${PIDS[@]}" >/dev/null
+	kill -9 "${PIDS[@]}" >/dev/null 2>&1
 
 	sleep 1
 	rm -rf "${CLUSTER_DIR}"
@@ -96,7 +97,12 @@ cat <<EOF >"${CLUSTER_DIR}/config-tidb.toml"
 auto-tls = true
 EOF
 
-cat <<EOF >"${CLUSTER_DIR}/config-grafana.ini"
+mkdir -p "${CLUSTER_DIR}/grafana/conf"
+rsync -ah ${HOME}/.tiup/grafana-base/* "${CLUSTER_DIR}/grafana"
+
+echo > "${CLUSTER_DIR}/grafana/data/grafana.db"
+
+cat <<EOF >"${CLUSTER_DIR}/grafana/conf/custom.ini"
 [server]
 # The ip address to bind to, empty will bind to all interfaces
 http_addr =
@@ -105,7 +111,33 @@ http_addr =
 http_port = 3000
 EOF
 
+cat <<EOF >"${CLUSTER_DIR}/grafana/conf/provisioning/dashboards/dashboard.yml"
+apiVersion: 1
+providers:
+  - name: Test-Cluster
+    folder: Test-Cluster
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: ${CLUSTER_DIR}/grafana/dashboards
+EOF
+
 mkdir -p "${CLUSTER_DIR}/prometheus"
+
+cat <<EOF >"${CLUSTER_DIR}/prometheus/prometheus.yml"
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+
+scrape_configs:
+  - job_name: 'cluster'
+    file_sd_configs:
+    - files:
+      - targets.json
+EOF
 
 cat <<EOF >"${CLUSTER_DIR}/prometheus/targets.yml"
 [
@@ -169,6 +201,11 @@ for id in 0; do
 	PIDS+=( $! )
 done
 
+info "Waiting for healthchecks of PD hosts to succeed."
+while curl -s --max-time 2 --fail "http://${MY_IP}:2379/metrics" >/dev/null; do
+	sleep 1
+done
+
 for id in $(seq 0 2); do
 	app_port="2016${id}"
 	status_port="2018${id}"
@@ -180,7 +217,7 @@ for id in $(seq 0 2); do
 		--advertise-addr="${MY_IP}:${app_port}"
 		--status-addr="0.0.0.0:${status_port}"
 		--advertise-status-addr="${MY_IP}:${status_port}"
-		--pd-endpoints="http://${MY_IP}:2379"
+		--pd-endpoints="http://${LOCAL_IP}:2379"
 		--log-file="${CLUSTER_DIR}/tikv/log-${id}.txt"
 	)
 	if [ $(( id % 2 )) -eq 0  ]; then
@@ -194,29 +231,40 @@ for id in $(seq 0 2); do
 	PIDS+=( $! )
 done
 
+info "Waiting for healthchecks of KV hosts to succeed."
+for id in $(seq 0 2); do
+	status_port="2018${id}"
+	while curl -s --max-time 2 --fail "http://${MY_IP}:${status_port}/metrics" >/dev/null; do
+		sleep 1
+	done
+done
+
+info "Healthchecks good."
 PROM_FLAGS=(
-	--pd.endpoints=${MY_IP}:2379
-	--address="0.0.0.0:12020"
-	--advertise-address=${MY_IP}:12020
+	--pd.endpoints="${LOCAL_IP}:2379"
+	--address="0.0.0.0:9090"
+	--advertise-address="${MY_IP}:9090"
 	--storage.path="${CLUSTER_DIR}/prometheus/data"
-	--log.path="${CLUSTER_DIR}/prometheus/log.txt"
+	--log.path="${CLUSTER_DIR}/prometheus/logs"
 )
 
 info "Start Prometheus"
-pushd "${CLUSTER_DIR}/prometheus"
+pushd "${CLUSTER_DIR}/prometheus" >/dev/null
 ${HOME}/.tiup/components/prometheus/${VER}/ng-monitoring-server "${PROM_FLAGS[@]}" &
 PIDS+=( $! )
-popd
+popd >/dev/null
 
 GRAFANA_FLAGS=(
-	--homepath /home/pug/.tiup/data/UMxtetG/grafana
-	--config "${CLUSTER_DIR}/config-grafana.ini"
-	cfg:default.paths.logs="${CLUSTER_DIR}/grafana/log.txt"
+	--homepath "${CLUSTER_DIR}/grafana"
+	--config "${CLUSTER_DIR}/grafana/conf/custom.ini"
+	cfg:default.paths.logs="${CLUSTER_DIR}/grafana/log"
 )
 
 info "Start Grafana"
+pushd "${CLUSTER_DIR}/grafana" >/dev/null
 ${HOME}/.tiup/components/grafana/${VER}/bin/grafana-server "${GRAFANA_FLAGS[@]}" &
 PIDS+=( $! )
+popd >/dev/null
 
 TIDB_FLAGS=(
 	--config="${CLUSTER_DIR}/config-tidb.toml"
