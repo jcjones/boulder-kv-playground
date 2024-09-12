@@ -101,8 +101,11 @@ services:
       - KEYSPACE
       - DB
     depends_on:
-      - vtctld
- 
+      vtctld:
+        condition: service_started
+      vttablet101:
+        condition: service_healthy
+
   schemaload:
     image: vitess/lite:${VITESS_TAG:-latest}
     command:

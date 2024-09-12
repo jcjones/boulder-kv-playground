@@ -1,0 +1,2 @@
+#!/bin/bash
+docker run --rm -ti mysql:8.0.39-bookworm mysql -h 10.0.0.96 -P 15306 -uroot
