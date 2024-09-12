@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `fqdnSets` (
   PRIMARY KEY (`id`),
   KEY `setHash_issued_idx` (`setHash`,`issued`),
   KEY `serial` (`serial`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `orderFqdnSets` (
   KEY `setHash_expires_idx` (`setHash`,`expires`),
   KEY `orderID_idx` (`orderID`),
   KEY `orderFqdnSets_registrationID_registrations` (`registrationID`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),

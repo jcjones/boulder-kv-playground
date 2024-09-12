@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `issuedNames` (
   PRIMARY KEY (`id`),
   KEY `reversedName_notBefore_Idx` (`reversedName`,`notBefore`),
   KEY `reversedName_renewal_notBefore_Idx` (`reversedName`,`renewal`,`notBefore`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS `issuedNames` (
 CREATE TABLE IF NOT EXISTS `caaRecheckingAffectedSerials` (
   `serial` varchar(255) NOT NULL,
   PRIMARY KEY (`serial`)
-) ENGINE=RocksDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 -- certificateStatus
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `certificateStatus` (
   KEY `isExpired_ocspLastUpdated_idx` (`isExpired`,`ocspLastUpdated`),
   KEY `notAfter_idx` (`notAfter`),
   KEY `serial` (`serial`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS `certificates` (
   KEY `regId_certificates_idx` (`registrationID`) COMMENT 'Common lookup',
   KEY `issued_idx` (`issued`),
   KEY `serial` (`serial`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS `keyHashToSerial` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_keyHash_certserial` (`keyHash`,`certSerial`),
   KEY `keyHash_certNotAfter` (`keyHash`,`certNotAfter`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- precertificates
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS `precertificates` (
   KEY `regId_precertificates_idx` (`registrationID`),
   KEY `issued_precertificates_idx` (`issued`),
   KEY `serial` (`serial`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS `revokedCertificates` (
   `revokedReason` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `issuerID_shardIdx_notAfterHour_idx` (`issuerID`, `shardIdx`, `notAfterHour`)
-) ENGINE=RocksDB DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
  PARTITION BY RANGE(id)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS `serials` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `serial` (`serial`),
   KEY `regId_serials_idx` (`registrationID`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- replacementOrders
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS `replacementOrders` (
   PRIMARY KEY (`id`),
   KEY `serial_idx` (`serial`),
   KEY `orderID_idx` (`orderID`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4
  PARTITION BY RANGE(id)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),

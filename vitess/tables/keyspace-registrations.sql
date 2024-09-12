@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS `authz2` (
   KEY `regID_expires_idx` (`registrationID`,`status`,`expires`),
   KEY `regID_identifier_status_expires_idx` (`registrationID`,`identifierType`,`identifierValue`,`status`,`expires`),
   KEY `expires_idx` (`expires`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   PRIMARY KEY (`id`),
   KEY `reg_expires` (`registrationID`,`expires`),
   KEY `regID_created_idx` (`registrationID`,`created`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS `registrations` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `jwk_sha256` (`jwk_sha256`),
   KEY `initialIP_createdAt` (`initialIP`,`createdAt`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `paused` (
   `registrationID` bigint(20) UNSIGNED NOT NULL,

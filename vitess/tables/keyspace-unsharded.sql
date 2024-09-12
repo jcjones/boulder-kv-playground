@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `newOrdersRL` (
   `count` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `regID_time_idx` (`regID`,`time`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- blockedKeys
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS `blockedKeys` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `keyHash` (`keyHash`),
   KEY `extantCertificatesChecked_idx` (`extantCertificatesChecked`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- crls
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `crls` (
   `createdAt` datetime NOT NULL,
   `crl` varchar(255) NOT NULL,
   PRIMARY KEY (`serial`)
-) ENGINE=RocksDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 --
 -- crlShards
 CREATE TABLE IF NOT EXISTS `crlShards` (
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `crlShards` (
   `leasedUntil` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `shardID` (`issuerID`, `idx`)
-) ENGINE=RocksDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- orderToAuthz2
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `orderToAuthz2` (
   PRIMARY KEY (`id`),
   KEY `orderID_idx` (`orderID`),
   KEY `authzID_idx` (`authzID`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `requestedNames` (
   PRIMARY KEY (`id`),
   KEY `orderID_idx` (`orderID`),
   KEY `reversedName_idx` (`reversedName`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
  PARTITION BY RANGE (`id`)
 (PARTITION `p_1` VALUES LESS THAN (100),
  PARTITION `p_2` VALUES LESS THAN (200),
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS `issuedNamesOld` (
   PRIMARY KEY (`id`),
   KEY `reversedName_notBefore_Idx` (`reversedName`,`notBefore`),
   KEY `reversedName_renewal_notBefore_Idx` (`reversedName`,`renewal`,`notBefore`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- certificatesPerName
@@ -141,4 +141,4 @@ CREATE TABLE IF NOT EXISTS `certificatesPerName` (
   `count` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `eTLDPlusOne_time_idx` (`eTLDPlusOne`,`time`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
