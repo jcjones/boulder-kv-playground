@@ -1,0 +1,16 @@
+{
+  "sharded": false,
+  "tables": {
+    "issuedNamesOld": {},
+    "certificatesPerName": {},
+    "newOrdersRL": {},
+    "blockedKeys": {},
+    "crls": {},
+    "crlShards": {},
+    "orderToAuthz2": {},
+    "requestedNames": {},
+    "fqdnSets_old": {},
+    "incidents": {},
+    "issuedNamesOffsets": {}
+  }
+}
