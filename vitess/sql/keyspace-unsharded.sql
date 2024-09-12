@@ -3,6 +3,17 @@ CREATE SCHEMA IF NOT EXISTS `ifn-boulder`;
 USE `ifn-boulder`;
 
 --
+-- newOrdersRL
+CREATE TABLE IF NOT EXISTS `newOrdersRL` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `regID` bigint(20) NOT NULL,
+  `time` datetime NOT NULL,
+  `count` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `regID_time_idx` (`regID`,`time`)
+) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+
+--
 -- blockedKeys
 CREATE TABLE IF NOT EXISTS `blockedKeys` (
   `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -108,3 +119,26 @@ CREATE TABLE IF NOT EXISTS `issuedNamesOffsets` (
   PRIMARY KEY (`datestamp`)
 ) DEFAULT CHARSET=utf8mb4;
 --
+--
+-- issuedNamesOld
+CREATE TABLE IF NOT EXISTS `issuedNamesOld` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `reversedName` varchar(640) CHARACTER SET ascii NOT NULL,
+  `notBefore` datetime NOT NULL,
+  `serial` varchar(255) NOT NULL,
+  `renewal` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `reversedName_notBefore_Idx` (`reversedName`,`notBefore`),
+  KEY `reversedName_renewal_notBefore_Idx` (`reversedName`,`renewal`,`notBefore`)
+) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+
+--
+-- certificatesPerName
+CREATE TABLE IF NOT EXISTS `certificatesPerName` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `eTLDPlusOne` varchar(255) NOT NULL,
+  `time` datetime NOT NULL,
+  `count` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `eTLDPlusOne_time_idx` (`eTLDPlusOne`,`time`)
+) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;

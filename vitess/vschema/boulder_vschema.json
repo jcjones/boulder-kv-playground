@@ -1,0 +1,152 @@
+{
+  "sharded": true,
+  "vindexes": {
+    "regID": {
+      "type": "hash"
+    },
+    "serial": {
+      "type": "hash"
+    },
+    "setHash": {
+      "type": "hash"
+    }
+  },
+  "tables": {
+    "authz2": {
+      "column_vindexes": [
+        {
+          "column": "registrationID",
+          "name": "regID"
+        }
+      ]
+    },
+    "issuedNames": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "orders": {
+      "column_vindexes": [
+        {
+          "column": "registrationID",
+          "name": "regID"
+        }
+      ]
+    },
+    "registrations": {
+      "column_vindexes": [
+        {
+          "column": "id",
+          "name": "regID"
+        }
+      ]
+    },
+    "paused": {
+      "column_vindexes": [
+        {
+          "column": "registrationID",
+          "name": "regID"
+        }
+      ]
+    },
+    "caaRecheckingAffectedSerials": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "certificateStatus": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "certificates": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "keyHashToSerial": {
+      "column_vindexes": [
+        {
+          "column": "certSerial",
+          "name": "serial"
+        }
+      ]
+    },
+    "precertificates": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "revokedCertificates": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "serials": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "replacementOrders": {
+      "column_vindexes": [
+        {
+          "column": "serial",
+          "name": "serial"
+        }
+      ]
+    },
+    "fqdnSets": {
+      "column_vindexes": [
+        {
+          "column": "setHash",
+          "name": "setHash"
+        }
+      ]
+    },
+    "orderFqdnSets": {
+      "column_vindexes": [
+        {
+          "column": "setHash",
+          "name": "setHash"
+        }
+      ]
+    }
+  }
+}
+{
+  "sharded": false,
+  "tables": {
+    "issuedNamesOld": {},
+    "certificatesPerName": {},
+    "newOrdersRL": {},
+    "blockedKeys": {},
+    "crls": {},
+    "crlShards": {},
+    "orderToAuthz2": {},
+    "requestedNames": {},
+    "fqdnSets_old": {},
+    "incidents": {},
+    "issuedNamesOffsets": {}
+  }
+}

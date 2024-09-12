@@ -2,6 +2,33 @@ CREATE SCHEMA IF NOT EXISTS `ifn-boulder`;
 
 USE `ifn-boulder`;
 
+
+--
+-- issuedNames
+CREATE TABLE IF NOT EXISTS `issuedNames` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `reversedName` varchar(640) CHARACTER SET ascii NOT NULL,
+  `notBefore` datetime NOT NULL,
+  `serial` varchar(255) NOT NULL,
+  `renewal` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `reversedName_notBefore_Idx` (`reversedName`,`notBefore`),
+  KEY `reversedName_renewal_notBefore_Idx` (`reversedName`,`renewal`,`notBefore`)
+) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8
+ PARTITION BY RANGE (`id`)
+(PARTITION `p_1` VALUES LESS THAN (100),
+ PARTITION `p_2` VALUES LESS THAN (200),
+ PARTITION `p_3` VALUES LESS THAN (300),
+ PARTITION `p_4` VALUES LESS THAN (400),
+ PARTITION `p_5` VALUES LESS THAN (500),
+ PARTITION `p_6` VALUES LESS THAN (600),
+ PARTITION `p_7` VALUES LESS THAN (700),
+ PARTITION `p_10` VALUES LESS THAN (1000),
+ PARTITION `p_50` VALUES LESS THAN (5000),
+ PARTITION `p_150` VALUES LESS THAN (15000),
+ PARTITION `p_250` VALUES LESS THAN (25000),
+ PARTITION `p_end` VALUES LESS THAN MAXVALUE);
+
 -- caaRecheckingAffectedSerials
 CREATE TABLE IF NOT EXISTS `caaRecheckingAffectedSerials` (
   `serial` varchar(255) NOT NULL,
@@ -72,16 +99,6 @@ CREATE TABLE IF NOT EXISTS `certificates` (
  PARTITION `p_250` VALUES LESS THAN (25000),
  PARTITION `p_end` VALUES LESS THAN MAXVALUE);
 
---
--- certificatesPerName
-CREATE TABLE IF NOT EXISTS `certificatesPerName` (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `eTLDPlusOne` varchar(255) NOT NULL,
-  `time` datetime NOT NULL,
-  `count` int(11) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `eTLDPlusOne_time_idx` (`eTLDPlusOne`,`time`)
-) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 
 --
 -- keyHashToSerial
@@ -162,3 +179,29 @@ CREATE TABLE IF NOT EXISTS `serials` (
   UNIQUE KEY `serial` (`serial`),
   KEY `regId_serials_idx` (`registrationID`)
 ) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+
+--
+-- replacementOrders
+CREATE TABLE IF NOT EXISTS `replacementOrders` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `serial` varchar(255) NOT NULL,
+  `orderID` bigint(20) NOT NULL,
+  `orderExpires` datetime NOT NULL,
+  `replaced` boolean DEFAULT false,
+  PRIMARY KEY (`id`),
+  KEY `serial_idx` (`serial`),
+  KEY `orderID_idx` (`orderID`)
+) ENGINE=RocksDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4
+ PARTITION BY RANGE(id)
+(PARTITION `p_1` VALUES LESS THAN (100),
+ PARTITION `p_2` VALUES LESS THAN (200),
+ PARTITION `p_3` VALUES LESS THAN (300),
+ PARTITION `p_4` VALUES LESS THAN (400),
+ PARTITION `p_5` VALUES LESS THAN (500),
+ PARTITION `p_6` VALUES LESS THAN (600),
+ PARTITION `p_7` VALUES LESS THAN (700),
+ PARTITION `p_10` VALUES LESS THAN (1000),
+ PARTITION `p_50` VALUES LESS THAN (5000),
+ PARTITION `p_150` VALUES LESS THAN (15000),
+ PARTITION `p_250` VALUES LESS THAN (25000),
+ PARTITION `p_end` VALUES LESS THAN MAXVALUE);
