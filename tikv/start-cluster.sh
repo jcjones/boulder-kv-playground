@@ -7,7 +7,7 @@ fi
 
 MY_IP="${1}"
 PD_IP="${2:-}"
-LOCAL_IP="$(hostname -I)"
+LOCAL_IP="$(hostname -I | sed 's/[[:blank:]]*$//')"
 VER="v8.3.0"
 PIDS=()
 
@@ -192,8 +192,8 @@ for id in 0; do
 		--peer-urls=http://0.0.0.0:2380
 		--advertise-peer-urls=http://${MY_IP}:2380
 		--log-file="${CLUSTER_DIR}/pd/log.txt"
-		--name="$(hostname)"
-		--initial-cluster=$(hostname)=http://${MY_IP}:2380
+		--name="pd-${id}"
+		--initial-cluster=pd-${id}=http://${MY_IP}:2379
 	)
 
 	info "Start the control plane server"
@@ -262,8 +262,8 @@ GRAFANA_FLAGS=(
 
 info "Start Grafana"
 pushd "${CLUSTER_DIR}/grafana" >/dev/null
-${HOME}/.tiup/components/grafana/${VER}/bin/grafana-server "${GRAFANA_FLAGS[@]}" &
-PIDS+=( $! )
+# ${HOME}/.tiup/components/grafana/${VER}/bin/grafana-server "${GRAFANA_FLAGS[@]}" &
+# PIDS+=( $! )
 popd >/dev/null
 
 TIDB_FLAGS=(

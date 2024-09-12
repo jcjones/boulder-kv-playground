@@ -1,0 +1,3 @@
+#!/bin/bash
+cd ~/git/tidb-docker-compose
+helm template compose > ~/git/boulder-kv-playground/tikv/docker-compose.yml
