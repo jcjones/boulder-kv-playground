@@ -18,7 +18,6 @@ set -u
 export VTROOT=/vt
 export VTDATAROOT=/vt/vtdataroot
 
-keyspace=${KEYSPACE:-'test_keyspace'}
 shard=${SHARD:-'0'}
 grpc_port=${GRPC_PORT:-'15999'}
 web_port=${WEB_PORT:-'8080'}
@@ -77,7 +76,7 @@ echo "##[CUSTOM_SQL_END]##" >> $init_db_sql_file
 mkdir -p $VTDATAROOT/backups
 
 
-export KEYSPACE=$keyspace
+export KEYSPACE=${KEYSPACES:-}
 export SHARD=$shard
 export TABLET_ID=$alias
 export TABLET_DIR=$tablet_dir
@@ -154,7 +153,7 @@ exec $VTROOT/bin/vttablet \
   --port $web_port \
   --grpc_port $grpc_port \
   --service_map 'grpc-queryservice,grpc-tabletmanager,grpc-updatestream' \
-  --init_keyspace $keyspace \
+  --init_keyspace 'boulder' \
   --init_shard $shard \
   --backup_storage_implementation file \
   --file_backup_storage_root $VTDATAROOT/backups \

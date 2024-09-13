@@ -16,8 +16,6 @@
 
 sleeptime=${SLEEPTIME:-0}
 targettab=${TARGETTAB:-"${CELL}-0000000101"}
-schema_files=${SCHEMA_FILES:-'create_messages.sql create_tokens.sql'}
-vschema_file=${VSCHEMA_FILE:-'default_vschema.json'}
 load_file=${POST_LOAD_FILE:-''}
 external_db=${EXTERNAL_DB:-'0'}
 export PATH=/vt/bin:$PATH
@@ -29,18 +27,17 @@ if [ ! -f schema_run ]; then
     vtctldclient --server vtctld:$GRPC_PORT GetTablet $targettab && break
     sleep 1
   done
-  if [ "$external_db" = "0" ]; then
-    for schema_file in $schema_files; do
-      echo "Applying Schema ${schema_file} to ${KEYSPACE}"
-      vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql-file /script/tables/${schema_file} $KEYSPACE || \
-      vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql "$(cat /script/tables/${schema_file})" $KEYSPACE || true
-    done
-  fi
-  echo "Applying VSchema ${vschema_file} to ${KEYSPACE}"
-  
-  vtctldclient --server vtctld:$GRPC_PORT ApplyVSchema --vschema-file /script/${vschema_file} $KEYSPACE || \
-  vtctldclient --server vtctld:$GRPC_PORT ApplyVSchema --vschema "$(cat /script/${vschema_file})" $KEYSPACE
-  
+
+  echo "Applying Schemas"
+  vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql-file /script/tables/keyspace-registrations.sql boulder
+  vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql-file /script/tables/keyspace-serial.sql boulder
+  vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql-file /script/tables/keyspace-sethash.sql boulder
+  vtctldclient --server vtctld:$GRPC_PORT ApplySchema --sql-file /script/tables/keyspace-unsharded.sql boulder-unsharded
+
+  echo "Applying VSchemas"
+  vtctldclient --server vtctld:$GRPC_PORT ApplyVSchema --vschema-file /script/vschema/boulder_vschema.json boulder
+  vtctldclient --server vtctld:$GRPC_PORT ApplyVSchema --vschema-file /script/vschema/boulder_unsharded_vschema.json boulder-unsharded
+
   echo "List All Tablets"
   vtctldclient --server vtctld:$GRPC_PORT GetTablets
     
